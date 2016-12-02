@@ -9,7 +9,7 @@ import Album from '../components/Album';
 import Sidebar from '../components/Sidebar';
 import Player from '../components/Player';
 
-import { convertAlbum, convertAlbums, skip } from '../utils';
+import { convertAlbum, convertAlbums, convertSong, skip } from '../utils';
 
 export default class AppContainer extends Component {
 
@@ -22,6 +22,7 @@ export default class AppContainer extends Component {
     this.next = this.next.bind(this);
     this.prev = this.prev.bind(this);
     this.selectAlbum = this.selectAlbum.bind(this);
+    this.selectArtist = this.selectArtist.bind(this);
     this.deselectAlbum = this.deselectAlbum.bind(this);
   }
 
@@ -34,6 +35,13 @@ export default class AppContainer extends Component {
       this.next());
     AUDIO.addEventListener('timeupdate', () =>
       this.setProgress(AUDIO.currentTime / AUDIO.duration));
+
+    //get artists
+    axios.get('/api/artists/')
+      .then(res => res.data)
+      .then(artists => {
+        this.setState({artists: artists});
+      });
   }
 
   onLoad (albums) {
@@ -98,6 +106,27 @@ export default class AppContainer extends Component {
       }));
   }
 
+  //get selected artist albums and songs
+  selectArtist(artistId){
+    Promise.all([
+    axios.get(`/api/artists/${artistId}/`),
+    axios.get(`/api/artists/${artistId}/albums`),
+    axios.get(`/api/artists/${artistId}/songs`)
+    ])
+    .then(result => {
+      const artistInfo = result[0].data;
+      const artistAlbums = result[1].data;
+      const artistSongs = result[2].data;
+      let albumsWithImageUrl = artistAlbums.map(album=> {
+        return convertAlbum(album)});
+      let songsWithUrl = artistSongs.map(song=>{
+        return convertSong(song)});
+      artistInfo.albums = albumsWithImageUrl;
+      artistInfo.songs = songsWithUrl;
+      this.setState({selectedArtist: artistInfo})
+    });
+  }
+
   deselectAlbum () {
     this.setState({ selectedAlbum: {}});
   }
@@ -117,11 +146,16 @@ export default class AppContainer extends Component {
           album: this.state.selectedAlbum,
           currentSong: this.state.currentSong,
           isPlaying: this.state.isPlaying,
-          toggle: this.toggleOne,
+          toggleOne: this.toggleOne,
 
           // Albums (plural) component's props
           albums: this.state.albums,
-          selectAlbum: this.selectAlbum // note that this.selectAlbum is a method, and this.state.selectedAlbum is the chosen album
+          selectAlbum: this.selectAlbum, // note that this.selectAlbum is a method, and this.state.selectedAlbum is the chosen album
+
+          //All Artists, selected artist, selectArtist axios method
+          artists: this.state.artists,
+          selectedArtist: this.state.selectedArtist,
+          selectArtist: this.selectArtist
         })
         : null
           // this.state.selectedAlbum.id ?
